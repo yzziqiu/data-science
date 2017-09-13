@@ -31,7 +31,8 @@ for item in nowplaying_movie_list:
         #display id and name
         #print(nowplaying_list)
 # comments from the film
-requrl = 'https://movie.douban.com/subject/' + nowplaying_list[0]['id'] + '/comments' +'?' +'start=0' + '&limit=20'
+# start=0 first comment
+requrl = 'https://movie.douban.com/subject/' + nowplaying_list[1]['id'] + '/comments' +'?' +'start=0' + '&limit=20'
 resp = request.urlopen(requrl)
 html_data = resp.read().decode('utf-8')
 soup = bs(html_data, 'html.parser')
@@ -76,8 +77,8 @@ words_stat=words_df.groupby(by=['segment'])['segment'].agg({"计数":numpy.size}
 words_stat=words_stat.reset_index().sort_values(by=["计数"],ascending=False)
 #print(words_stat.head())
 #words cloud
-#font_path="simhei.ttf",
-wordcloud=WordCloud(background_color="white",max_font_size=80) #指定字体类型、字体大小和字体颜色
+
+wordcloud=WordCloud(font_path="simhei.ttf",background_color="white",max_font_size=80) #指定字体类型、字体大小和字体颜色
 word_frequence = {x[0]:x[1] for x in words_stat.head(1000).values}
 word_frequence_list = []
 for key in word_frequence:
