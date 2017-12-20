@@ -1,34 +1,64 @@
 import tensorflow as tf
-import input_data
+import random
+# import matplotlib.pyplot as plt
+from tensorflow.examples.tutorials.mnist import input_data
+tf.set_random_seed(777)  # reproducibility
+
 mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
+# Check out https://www.tensorflow.org/get_started/mnist/beginners for
+# more information about the mnist dataset
 
-# 操作符号变量来描述这些可交互的操作单元
-# 第一个维度任何长度
-x = tf.placeholder("float", [None, 784])
-# 全为零的张量来初始化W和b
-W = tf.Variable(tf.zeros([784,10]))
-b = tf.Variable(tf.zeros([10]))
-# softmax 函数
-y = tf.nn.softmax(tf.matmul(x,W) + b)
+# parameters
+learning_rate = 0.001
+training_epochs = 15
+batch_size = 100
 
-# 计算交叉熵，新的占位符
-y_ = tf.placeholder("float", [None,10])
-# 交叉熵公式
-cross_entropy = -tf.reduce_sum(y_*tf.log(y))
-# 梯度下降算法最小化交叉熵
-train_step = tf.train.GradientDescentOptimizer(0.01).minimize(cross_entropy)
+# input place holders
+X = tf.placeholder(tf.float32, [None, 784])
+Y = tf.placeholder(tf.float32, [None, 10])
 
-#初始化变量
-init = tf.initialize_all_variables()
+# weights & bias for nn layers
+W = tf.Variable(tf.random_normal([784, 10]))
+b = tf.Variable(tf.random_normal([10]))
+
+hypothesis = tf.matmul(X, W) + b
+
+# define cost/loss & optimizer
+cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
+    logits=hypothesis, labels=Y))
+optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
+
+# initialize
 sess = tf.Session()
-sess.run(init)
+sess.run(tf.global_variables_initializer())
 
-for i in range(1000):
-  batch_xs, batch_ys = mnist.train.next_batch(100)
-  sess.run(train_step, feed_dict={x: batch_xs, y_: batch_ys})
+# train my model
+for epoch in range(training_epochs):
+    avg_cost = 0
+    total_batch = int(mnist.train.num_examples / batch_size)
 
-# 预测是否真实标签匹配
-correct_prediction = tf.equal(tf.argmax(y,1), tf.argmax(y_,1))
-# 布尔值转换成浮点数
-accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
-print sess.run(accuracy, feed_dict={x: mnist.test.images, y_: mnist.test.labels})
+    for i in range(total_batch):
+        batch_xs, batch_ys = mnist.train.next_batch(batch_size)
+        feed_dict = {X: batch_xs, Y: batch_ys}
+        c, _ = sess.run([cost, optimizer], feed_dict=feed_dict)
+        avg_cost += c / total_batch
+
+    print('Epoch:', '%04d' % (epoch + 1), 'cost =', '{:.9f}'.format(avg_cost))
+
+print('Learning Finished!')
+
+# Test model and check accuracy
+correct_prediction = tf.equal(tf.argmax(hypothesis, 1), tf.argmax(Y, 1))
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+print('Accuracy:', sess.run(accuracy, feed_dict={
+      X: mnist.test.images, Y: mnist.test.labels}))
+
+# Get one and predict
+r = random.randint(0, mnist.test.num_examples - 1)
+print("Label: ", sess.run(tf.argmax(mnist.test.labels[r:r + 1], 1)))
+print("Prediction: ", sess.run(
+    tf.argmax(hypothesis, 1), feed_dict={X: mnist.test.images[r:r + 1]}))
+
+# plt.imshow(mnist.test.images[r:r + 1].
+#           reshape(28, 28), cmap='Greys', interpolation='nearest')
+# plt.show()

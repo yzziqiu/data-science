@@ -1,62 +1,98 @@
 import tensorflow as tf
-import input_data
+import random
+# import matplotlib.pyplot as plt
+
+from tensorflow.examples.tutorials.mnist import input_data
+
+tf.set_random_seed(777)  # reproducibility
+
 mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
-def weight_variable(shape):
-  initial = tf.truncated_normal(shape, stddev=0.1)
-  return tf.Variable(initial)
+# Check out https://www.tensorflow.org/get_started/mnist/beginners for
+# more information about the mnist dataset
 
-def bias_variable(shape):
-  initial = tf.constant(0.1, shape=shape)
-  return tf.Variable(initial)
+# hyper parameters
+learning_rate = 0.001
+training_epochs = 15
+batch_size = 100
 
+# input place holders
+X = tf.placeholder(tf.float32, [None, 784])
+X_img = tf.reshape(X, [-1, 28, 28, 1])   # img 28x28x1 (black/white)
+Y = tf.placeholder(tf.float32, [None, 10])
 
-def conv2d(x, W):
-  return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
+# L1 ImgIn shape=(?, 28, 28, 1)
+W1 = tf.Variable(tf.random_normal([3, 3, 1, 32], stddev=0.01))
+#    Conv     -> (?, 28, 28, 32)
+#    Pool     -> (?, 14, 14, 32)
+L1 = tf.nn.conv2d(X_img, W1, strides=[1, 1, 1, 1], padding='SAME')
+L1 = tf.nn.relu(L1)
+L1 = tf.nn.max_pool(L1, ksize=[1, 2, 2, 1],
+                    strides=[1, 2, 2, 1], padding='SAME')
+'''
+Tensor("Conv2D:0", shape=(?, 28, 28, 32), dtype=float32)
+Tensor("Relu:0", shape=(?, 28, 28, 32), dtype=float32)
+Tensor("MaxPool:0", shape=(?, 14, 14, 32), dtype=float32)
+'''
 
-def max_pool_2x2(x):
-  return tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
-                        strides=[1, 2, 2, 1], padding='SAME')
+# L2 ImgIn shape=(?, 14, 14, 32)
+W2 = tf.Variable(tf.random_normal([3, 3, 32, 64], stddev=0.01))
+#    Conv      ->(?, 14, 14, 64)
+#    Pool      ->(?, 7, 7, 64)
+L2 = tf.nn.conv2d(L1, W2, strides=[1, 1, 1, 1], padding='SAME')
+L2 = tf.nn.relu(L2)
+L2 = tf.nn.max_pool(L2, ksize=[1, 2, 2, 1],
+                    strides=[1, 2, 2, 1], padding='SAME')
+L2_flat = tf.reshape(L2, [-1, 7 * 7 * 64])
+'''
+Tensor("Conv2D_1:0", shape=(?, 14, 14, 64), dtype=float32)
+Tensor("Relu_1:0", shape=(?, 14, 14, 64), dtype=float32)
+Tensor("MaxPool_1:0", shape=(?, 7, 7, 64), dtype=float32)
+Tensor("Reshape_1:0", shape=(?, 3136), dtype=float32)
+'''
 
-W_conv1 = weight_variable([5, 5, 1, 32])
-b_conv1 = bias_variable([32])
-x_image = tf.reshape(x, [-1,28,28,1])
-h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
-h_pool1 = max_pool_2x2(h_conv1)
+# Final FC 7x7x64 inputs -> 10 outputs
+W3 = tf.get_variable("W3", shape=[7 * 7 * 64, 10],
+                     initializer=tf.contrib.layers.xavier_initializer())
+b = tf.Variable(tf.random_normal([10]))
+logits = tf.matmul(L2_flat, W3) + b
 
-#2nd
-W_conv2 = weight_variable([5, 5, 32, 64])
-b_conv2 = bias_variable([64])
+# define cost/loss & optimizer
+cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
+    logits=logits, labels=Y))
+optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
 
-h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
-h_pool2 = max_pool_2x2(h_conv2)
+# initialize
+sess = tf.Session()
+sess.run(tf.global_variables_initializer())
 
-#3rd
-W_fc1 = weight_variable([7 * 7 * 64, 1024])
-b_fc1 = bias_variable([1024])
+# train my model
+print('Learning started. It takes sometime.')
+for epoch in range(training_epochs):
+    avg_cost = 0
+    total_batch = int(mnist.train.num_examples / batch_size)
 
-h_pool2_flat = tf.reshape(h_pool2, [-1, 7*7*64])
-h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
+    for i in range(total_batch):
+        batch_xs, batch_ys = mnist.train.next_batch(batch_size)
+        feed_dict = {X: batch_xs, Y: batch_ys}
+        c, _ = sess.run([cost, optimizer], feed_dict=feed_dict)
+        avg_cost += c / total_batch
 
-keep_prob = tf.placeholder("float")
-h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
+    print('Epoch:', '%04d' % (epoch + 1), 'cost =', '{:.9f}'.format(avg_cost))
 
-W_fc2 = weight_variable([1024, 10])
-b_fc2 = bias_variable([10])
+print('Learning Finished!')
 
-y_conv=tf.nn.softmax(tf.matmul(h_fc1_drop, W_fc2) + b_fc2)
+# Test model and check accuracy
+correct_prediction = tf.equal(tf.argmax(logits, 1), tf.argmax(Y, 1))
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+print('Accuracy:', sess.run(accuracy, feed_dict={
+      X: mnist.test.images, Y: mnist.test.labels}))
 
-cross_entropy = -tf.reduce_sum(y_*tf.log(y_conv))
-train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
-correct_prediction = tf.equal(tf.argmax(y_conv,1), tf.argmax(y_,1))
-accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
-sess.run(tf.initialize_all_variables())
-for i in range(20000):
-  batch = mnist.train.next_batch(50)
-  if i%100 == 0:
-    train_accuracy = accuracy.eval(feed_dict={
-        x:batch[0], y_: batch[1], keep_prob: 1.0})
-    print "step %d, training accuracy %g"%(i, train_accuracy)
-  train_step.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
+# Get one and predict
+r = random.randint(0, mnist.test.num_examples - 1)
+print("Label: ", sess.run(tf.argmax(mnist.test.labels[r:r + 1], 1)))
+print("Prediction: ", sess.run(
+    tf.argmax(logits, 1), feed_dict={X: mnist.test.images[r:r + 1]}))
 
-print "test accuracy %g"%accuracy.eval(feed_dict={
-    x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0})
+# plt.imshow(mnist.test.images[r:r + 1].
+#           reshape(28, 28), cmap='Greys', interpolation='nearest')
+# plt.show()
