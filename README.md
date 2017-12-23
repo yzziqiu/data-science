@@ -41,6 +41,16 @@ Building a linear model and generating a graph.
 
 accuracy 92%
 
+3. Regression models
+
+Logistic Regression and Linear Regression
+
+4. RNN
+
+5. Auto text generation
+
+LSTM and RNN
+
 - CNN(advanced)
 
 accuracy 97%
@@ -57,3 +67,30 @@ Discard all neutral words, using regression. Accuracy on training and validation
 
 Drawing mood counting graph, which reveals the comparison and negative reasons of different airlines. Comparison performance among different classifiers: LogisticRegression, KNeighborsClassifier
     SVC, DecisionTreeClassifier, RandomForestClassifier, AdaBoostClassifier, GaussianNB
+
+
+## Kaggle
+
+1. Amazon reviews text generation
+
+TensorFlow, RNN and LSTM
+
+2. Data science and Machine Learning beginners
+
+- matplotlib, pandas
+
+- sklearn,
+
+Supervised: KNN, CV
+
+Unsupervised: Kmeans, TSNE, PCA
+
+3. feature ranking
+
+## Machine Learning
+
+1. deep learning
+
+2. (linear regression) house price Prediction
+
+3. (classifiers) sentiment analysis
